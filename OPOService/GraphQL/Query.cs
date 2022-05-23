@@ -29,10 +29,9 @@ namespace OPOService.GraphQL
         {
             var userName = claimsPrincipal.Identity.Name;
             var user = context.Users.FirstOrDefault(o => o.Username == userName);
-            var transaction = context.Transactions.FirstOrDefault(o => o.UserId == user.Id);
-            List<Transaction> transactions = new();
-            transactions.Add(transaction);
-            return transactions.AsQueryable();
+            var transaction = context.Transactions.Where(o => o.UserId == user.Id).ToList();
+            
+            return transaction.AsQueryable();
         }
     }
 }
