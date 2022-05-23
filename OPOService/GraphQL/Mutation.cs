@@ -1,4 +1,5 @@
 ﻿using HotChocolate.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OPOService.Models;
@@ -174,6 +175,45 @@ namespace OPOService.GraphQL
                 await context.SaveChangesAsync();
             }
             return await Task.FromResult(user);
+        }
+
+        [Authorize(Roles = new[] { "USER" })]
+        public async Task<string> TopUpByTokenAsync(
+            string amount, ClaimsPrincipal claimsPrincipal,
+            [Service] OPOContext context)
+        {
+            var username = claimsPrincipal.Identity.Name;
+            var user = context.Users.Where(o => o.Username == username).Include(o => o.Saldos).FirstOrDefault();
+            //bool valid = BCrypt.Net.BCrypt.Verify(input.OldPassword, user.Password);
+            if (user != null)
+            {
+                var transaction = context.Database.BeginTransaction();
+                try
+                {
+                    Transaction newTransaction = new Transaction
+                    {
+                        TransactionName = "TopUp",
+                        TransactionDate = DateTime.Now,
+                        Status = "Completed",
+                        Amount = amount,
+                        Description = $"TopUp sebersar Rp{amount} dari Bank..."
+                    };
+                    user.Transactions.Add(newTransaction);
+                    Saldo saldo = user.Saldos.FirstOrDefault();
+                    int newsaldo = Int32.Parse(saldo.SaldoUser) + Int32.Parse(amount);
+                    saldo.SaldoUser = newsaldo.ToString();
+                    context.Users.Update(user);
+                    context.SaveChanges();
+                    await transaction.CommitAsync();
+                    return "TopUp Berhasil!";
+                }
+                catch
+                {
+                    transaction.Rollback();
+                    return "TopUp Gagal!";
+                }
+            }
+            else return "User Tidak Ada!";
         }
 
     }
