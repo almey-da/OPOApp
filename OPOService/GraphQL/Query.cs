@@ -23,6 +23,16 @@ namespace OPOService.GraphQL
             saldos.Add(saldo);
 
             return saldos.AsQueryable();
-        }    
+        }
+        [Authorize(Roles = new[] { "USER" })]
+        public IQueryable<Transaction> GetTransactionByToken([Service] OPOContext context, ClaimsPrincipal claimsPrincipal)
+        {
+            var userName = claimsPrincipal.Identity.Name;
+            var user = context.Users.FirstOrDefault(o => o.Username == userName);
+            var transaction = context.Transactions.FirstOrDefault(o => o.UserId == user.Id);
+            List<Transaction> transactions = new();
+            transactions.Add(transaction);
+            return transactions.AsQueryable();
+        }
     }
 }

@@ -16,7 +16,7 @@ namespace OPOService.GraphQL
         RegisterUser input,
         [Service] OPOContext context)
         {
-            var user = context.Users.Where(o => o.Username == input.Username).FirstOrDefault();
+            var user = context.Users.Where(o => o.Username == input.Username || o.PhoneNumber == input.PhoneNumber).FirstOrDefault();
             if (user != null)
             {
                 return await Task.FromResult(new UserData());
@@ -187,7 +187,7 @@ namespace OPOService.GraphQL
             //bool valid = BCrypt.Net.BCrypt.Verify(input.OldPassword, user.Password);
             if (user != null)
             {
-                var transaction = context.Database.BeginTransaction();
+                using var transaction = context.Database.BeginTransaction();
                 try
                 {
                     Transaction newTransaction = new Transaction
@@ -216,5 +216,73 @@ namespace OPOService.GraphQL
             else return "User Tidak Ada!";
         }
 
+        [Authorize(Roles = new[] { "USER" })]
+        public async Task<string> TransferAmongUserAsync(
+            TransferInput input,
+            ClaimsPrincipal claimsPrincipal,
+            [Service] OPOContext context)
+        {
+            var username = claimsPrincipal.Identity.Name;
+
+            var currUser = context.Users.Where(o => o.Username == username && o.IsDeleted == false).Include(o=>o.Saldos).FirstOrDefault();
+            var targetUser = context.Users.Where(o => o.Username == input.Username || o.PhoneNumber == input.PhoneNumber && o.IsDeleted == false).Include(o=>o.Saldos).FirstOrDefault();
+            using var transaction = context.Database.BeginTransaction();
+            try
+            {
+                Saldo saldoUser = currUser.Saldos.FirstOrDefault();
+                Saldo saldoTargetUser = targetUser.Saldos.FirstOrDefault();
+                if (currUser == null)
+                {
+                    return "User not found";
+                }
+                else if (targetUser == null)
+                {
+                    return "User Tujuan Tidak Ada!";
+                }
+                else if(Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(input.Amount))
+                {
+                    return "Saldo Tidak Cukup!";
+                }
+
+                Transaction newTransactionCurrUser = new Transaction
+                {
+                    TransactionName = "Transfer",
+                    TransactionDate = DateTime.Now,
+                    Status = "Completed",
+                    Amount = input.Amount,
+                    Description = $"Transfer sebesar Rp{input.Amount} ke {targetUser.FullName}"
+                };
+                
+                Transaction newTransactionTargetUser = new Transaction
+                {
+                    TransactionName = "Receive",
+                    TransactionDate = DateTime.Now,
+                    Status = "Completed",
+                    Amount = input.Amount,
+                    Description = $"Menerima Saldo sebesar Rp{input.Amount} dari {currUser.FullName}"
+                };
+
+                int newSaldoCurrUser = Convert.ToInt32(saldoUser.SaldoUser) - Convert.ToInt32(input.Amount);
+                int newSaldoTargetUser = Convert.ToInt32(saldoTargetUser.SaldoUser) + Convert.ToInt32(input.Amount);
+
+                saldoUser.SaldoUser = newSaldoCurrUser.ToString();
+                saldoTargetUser.SaldoUser = newSaldoTargetUser.ToString();
+
+                currUser.Transactions.Add(newTransactionCurrUser);
+                targetUser.Transactions.Add(newTransactionTargetUser);
+
+                context.Users.Update(currUser);
+                context.Users.Update(targetUser);
+                context.SaveChanges();
+                await transaction.CommitAsync();
+
+                return "Transfer Berhasil!";
+            }
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+                return "Transfer Gagal!";
+            }
+        }
     }
 }
