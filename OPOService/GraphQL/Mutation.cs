@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OPOService.Models;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -243,6 +244,8 @@ namespace OPOService.GraphQL
                 {
                     return "Saldo Tidak Cukup!";
                 }
+                decimal value = Convert.ToDecimal(input.Amount);
+                string amount = value.ToString("C", CultureInfo.GetCultureInfo("id-ID"));
 
                 Transaction newTransactionCurrUser = new Transaction
                 {
@@ -250,7 +253,7 @@ namespace OPOService.GraphQL
                     TransactionDate = DateTime.Now,
                     Status = "Completed",
                     Amount = input.Amount,
-                    Description = $"Transfer sebesar Rp{input.Amount} ke {targetUser.FullName}"
+                    Description = $"Transfer sebesar {amount} ke {targetUser.FullName}"
                 };
                 
                 Transaction newTransactionTargetUser = new Transaction
@@ -259,7 +262,7 @@ namespace OPOService.GraphQL
                     TransactionDate = DateTime.Now,
                     Status = "Completed",
                     Amount = input.Amount,
-                    Description = $"Menerima Saldo sebesar Rp{input.Amount} dari {currUser.FullName}"
+                    Description = $"Menerima Saldo sebesar {amount} dari {currUser.FullName}"
                 };
 
                 int newSaldoCurrUser = Convert.ToInt32(saldoUser.SaldoUser) - Convert.ToInt32(input.Amount);

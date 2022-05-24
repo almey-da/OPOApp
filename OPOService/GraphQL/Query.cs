@@ -1,6 +1,7 @@
 ﻿using HotChocolate.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using OPOService.Models;
+using System.Globalization;
 using System.Security.Claims;
 
 namespace OPOService.GraphQL
@@ -20,6 +21,9 @@ namespace OPOService.GraphQL
             var user = context.Users.FirstOrDefault(o => o.Username == userName);
             Saldo saldo = context.Saldos.FirstOrDefault(o => o.UserId == user.Id);
             List<Saldo> saldos = new();
+            decimal value = Convert.ToDecimal(saldo.SaldoUser);
+            string amount = value.ToString("C", CultureInfo.GetCultureInfo("id-ID"));
+            saldo.SaldoUser = amount;
             saldos.Add(saldo);
 
             return saldos.AsQueryable();
