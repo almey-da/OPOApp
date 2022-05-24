@@ -290,35 +290,92 @@ namespace OPOService.GraphQL
 
         }
 
+        [Authorize(Roles = new[] { "USER" })]
         public async Task<VirtualAccount> BillsAsync(
           int id, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal)
         {
-            VirtualAccount virtualAccount = new VirtualAccount
-            {
-                Virtualaccount = "077808183923",
-                Bills = "100000",
-                PaymentStatus = "Pending"
-            };
+            ////Dari Service Travika/SOLAKA
+            //VirtualAccount virtualAccount = new VirtualAccount
+            //{
+            //    Virtualaccount = "077808183923",
+            //    Bills = "100000",
+            //    PaymentStatus = "Pending"
+            //};
 
-            var val = JsonConvert.SerializeObject(virtualAccount);
-            var val2 = JsonConvert.DeserializeObject<VirtualAccount>(val);
+            //var val = JsonConvert.SerializeObject(virtualAccount);
+            ////======================================================//
 
-            var User = context.Users.FirstOrDefault(o => ("0778"+o.PhoneNumber) == val2.Virtualaccount);
-            Bill bill = new Bill { Bills = val2.Bills, PaymentStatus = val2.PaymentStatus, Virtualaccount = val2.Virtualaccount };
+            ////============Consume dari Kafka===========
+            //var val2 = JsonConvert.DeserializeObject<VirtualAccount>(val);
 
-            User.Bills.Add(bill);
+            //var User = context.Users.FirstOrDefault(o => ("0778"+o.PhoneNumber) == val2.Virtualaccount);
+            //Bill bill = new Bill { Bills = val2.Bills, PaymentStatus = val2.PaymentStatus, Virtualaccount = val2.Virtualaccount };
 
-            context.SaveChanges();
+            //User.Bills.Add(bill);
 
+            //await context.SaveChangesAsync();
+            ////=====================================
+
+            //Mutation Bill
             var username = claimsPrincipal.Identity.Name;
-            var user1 = context.Users.Where(o => o.Username == username).Include(o => o.Bills).FirstOrDefault();
-           // var bill1 = context.Bills.FirstOrDefault(o => o.Id == id);
-     
-            Bill bill2 = user1.Bills.FirstOrDefault(o=>o.Id == id);
-            bill2.PaymentStatus = "Complate";
-            context.Users.Update(user1);
-            await context.SaveChangesAsync();
-            return new VirtualAccount { Bills = bill2.Bills, Virtualaccount = bill2.Virtualaccount, PaymentStatus = bill2.PaymentStatus};
+            var user1 = context.Users.Where(o => o.Username == username).Include(o => o.Bills).Include(o => o.Saldos).FirstOrDefault();
+            using var transaction = context.Database.BeginTransaction();
+            try
+            {
+                Saldo saldoUser = user1.Saldos.FirstOrDefault();
+                Bill bill2 = user1.Bills.FirstOrDefault(o => o.Id == id && o.PaymentStatus == "Pending");
+                //Update Payment Status
+                if (bill2 == null)
+                {
+                    return new VirtualAccount
+                    {
+                        PaymentStatus = "Tidak Ada Tagihan",
+                        Bills = "0",
+                        Virtualaccount = "0778" + user1.PhoneNumber
+                    };
+                }
+                else if (Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(bill2.Bills))
+                {
+                    bill2.PaymentStatus = "Saldo Tidak Cukup";
+                } 
+                
+                else
+                {
+                    bill2.PaymentStatus = "Complete";
+                    //Update Saldo User
+                    var newSaldoUser = Convert.ToInt32(saldoUser.SaldoUser) - Convert.ToInt32(bill2.Bills);
+                    saldoUser.SaldoUser = newSaldoUser.ToString();
+
+                    decimal value = Convert.ToDecimal(bill2.Bills);
+                    string amount = value.ToString("C", CultureInfo.GetCultureInfo("id-ID"));
+
+                    Transaction newTransaction = new Transaction
+                    {
+                        TransactionName = "Pembayaran",
+                        TransactionDate = DateTime.Now,
+                        Status = "Completed",
+                        Amount = bill2.Bills,
+                        Description = $"Pembayaran sebesar {amount} ke Travika"
+                    };
+                    user1.Transactions.Add(newTransaction);
+
+                    context.Users.Update(user1);
+                    context.SaveChanges();
+
+                    await transaction.CommitAsync();
+                }
+                return new VirtualAccount { Bills = bill2.Bills, Virtualaccount = bill2.Virtualaccount, PaymentStatus = bill2.PaymentStatus };
+            }
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+                return new VirtualAccount
+                {
+                    PaymentStatus = ex.Message.ToString(),
+                    Bills = "0",
+                    Virtualaccount = "0778" + user1.PhoneNumber
+                };
+            }
         }
     }
 }
