@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 using OPOService.Models;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
@@ -286,6 +287,38 @@ namespace OPOService.GraphQL
                 transaction.Rollback();
                 return "Transfer Gagal!";
             }
+
+        }
+
+        public async Task<VirtualAccount> BillsAsync(
+          int id, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal)
+        {
+            VirtualAccount virtualAccount = new VirtualAccount
+            {
+                Virtualaccount = "077808183923",
+                Bills = "100000",
+                PaymentStatus = "Pending"
+            };
+
+            var val = JsonConvert.SerializeObject(virtualAccount);
+            var val2 = JsonConvert.DeserializeObject<VirtualAccount>(val);
+
+            var User = context.Users.FirstOrDefault(o => ("0778"+o.PhoneNumber) == val2.Virtualaccount);
+            Bill bill = new Bill { Bills = val2.Bills, PaymentStatus = val2.PaymentStatus, Virtualaccount = val2.Virtualaccount };
+
+            User.Bills.Add(bill);
+
+            context.SaveChanges();
+
+            var username = claimsPrincipal.Identity.Name;
+            var user1 = context.Users.Where(o => o.Username == username).Include(o => o.Bills).FirstOrDefault();
+           // var bill1 = context.Bills.FirstOrDefault(o => o.Id == id);
+     
+            Bill bill2 = user1.Bills.FirstOrDefault(o=>o.Id == id);
+            bill2.PaymentStatus = "Complate";
+            context.Users.Update(user1);
+            await context.SaveChangesAsync();
+            return new VirtualAccount { Bills = bill2.Bills, Virtualaccount = bill2.Virtualaccount, PaymentStatus = bill2.PaymentStatus};
         }
     }
 }
