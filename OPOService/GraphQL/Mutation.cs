@@ -59,7 +59,7 @@ namespace OPOService.GraphQL
             }
             else if (!user.IsVerified)
             {
-                return await Task.FromResult(new UserToken(null, null, "Account not verified"));
+                return await Task.FromResult(new UserToken(null, null, "Account is not verified"));
             }
 
             bool valid = BCrypt.Net.BCrypt.Verify(input.Password, user.Password);
@@ -108,7 +108,7 @@ namespace OPOService.GraphQL
             var user = context.Users.FirstOrDefault(o => o.Username == input.UserName && o.IsDeleted == false && o.IsVerified == false);
             if (user == null)
             {
-                return "User not found";
+                return "User is not found";
             }
             using var transaction = context.Database.BeginTransaction();
             try
@@ -152,7 +152,7 @@ namespace OPOService.GraphQL
             var user = context.Users.FirstOrDefault(o => o.Id == id && o.IsDeleted == false);
             if (user == null)
             {
-                return "User not found";
+                return "User is not found";
             }
             user.IsDeleted = true;
             context.Users.Update(user);
@@ -198,7 +198,7 @@ namespace OPOService.GraphQL
                         TransactionDate = DateTime.Now,
                         Status = "Completed",
                         Amount = amount,
-                        Description = $"TopUp sebersar Rp{amount} dari Bank..."
+                        Description = $"TopUp Rp{amount} from Bank..."
                     };
                     user.Transactions.Add(newTransaction);
                     Saldo saldo = user.Saldos.FirstOrDefault();
@@ -207,15 +207,15 @@ namespace OPOService.GraphQL
                     context.Users.Update(user);
                     context.SaveChanges();
                     await transaction.CommitAsync();
-                    return "TopUp Berhasil!";
+                    return "TopUp Success!";
                 }
                 catch
                 {
                     transaction.Rollback();
-                    return "TopUp Gagal!";
+                    return "TopUp Failed!";
                 }
             }
-            else return "User Tidak Ada!";
+            else return "User is not Found!";
         }
 
         [Authorize(Roles = new[] { "USER" })]
@@ -235,15 +235,15 @@ namespace OPOService.GraphQL
                 Saldo saldoTargetUser = targetUser.Saldos.FirstOrDefault();
                 if (currUser == null)
                 {
-                    return "User not found";
+                    return "User is not Found";
                 }
                 else if (targetUser == null)
                 {
-                    return "User Tujuan Tidak Ada!";
+                    return "Destination User is not Found!";
                 }
                 else if (Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(input.Amount))
                 {
-                    return "Saldo Tidak Cukup!";
+                    return "The Balance is not Enough!";
                 }
                 decimal value = Convert.ToDecimal(input.Amount);
                 string amount = value.ToString("C", CultureInfo.GetCultureInfo("id-ID"));
@@ -254,7 +254,7 @@ namespace OPOService.GraphQL
                     TransactionDate = DateTime.Now,
                     Status = "Completed",
                     Amount = input.Amount,
-                    Description = $"Transfer sebesar {amount} ke {targetUser.FullName}"
+                    Description = $"Transfer {amount} to {targetUser.FullName}"
                 };
 
                 Transaction newTransactionTargetUser = new Transaction
@@ -263,7 +263,7 @@ namespace OPOService.GraphQL
                     TransactionDate = DateTime.Now,
                     Status = "Completed",
                     Amount = input.Amount,
-                    Description = $"Menerima Saldo sebesar {amount} dari {currUser.FullName}"
+                    Description = $"Received Balance {amount} from {currUser.FullName}"
                 };
 
                 int newSaldoCurrUser = Convert.ToInt32(saldoUser.SaldoUser) - Convert.ToInt32(input.Amount);
@@ -280,12 +280,12 @@ namespace OPOService.GraphQL
                 context.SaveChanges();
                 await transaction.CommitAsync();
 
-                return "Transfer Berhasil!";
+                return "Transfer Success!";
             }
             catch (Exception ex)
             {
                 transaction.Rollback();
-                return "Transfer Gagal!";
+                return "Transfer Failed!";
             }
 
         }
@@ -329,14 +329,14 @@ namespace OPOService.GraphQL
                 {
                     return new VirtualAccount
                     {
-                        PaymentStatus = "Tidak Ada Tagihan",
+                        PaymentStatus = "No Bills",
                         Bills = "0",
                         Virtualaccount = "0778" + user1.PhoneNumber
                     };
                 }
                 else if (Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(bill2.Bills))
                 {
-                    bill2.PaymentStatus = "Saldo Tidak Cukup";
+                    bill2.PaymentStatus = "The Balance is not Enough";
                 }
 
                 else
@@ -351,11 +351,11 @@ namespace OPOService.GraphQL
 
                     Transaction newTransaction = new Transaction
                     {
-                        TransactionName = "Pembayaran",
+                        TransactionName = "Payment",
                         TransactionDate = DateTime.Now,
                         Status = "Completed",
                         Amount = bill2.Bills,
-                        Description = $"Pembayaran sebesar {amount} ke Travika"
+                        Description = $"Payment {amount} to Travika"
                     };
                     user1.Transactions.Add(newTransaction);
 
@@ -386,7 +386,7 @@ namespace OPOService.GraphQL
             var user = context.Users.Where(u => u.Username == userName).Include(s=>s.Saldos).FirstOrDefault();
 
             if (redeemCode == null)
-                return "RedeemCode Tidak ada";
+                return "The RedeemCode is not Found";
             if (user != null)
             {
                 using var transaction = context.Database.BeginTransaction();
@@ -401,7 +401,7 @@ namespace OPOService.GraphQL
                         TransactionDate = DateTime.Now,
                         Status = "Completed",
                         Amount = redeemCode.Amount,
-                        Description = $"TopUp sebesar {amount} dari Bank melalui RedeemCode"
+                        Description = $"TopUp {amount} from Bank through RedeemCode"
                     };
                     user.Transactions.Add(newTransaction);
                     Saldo saldo = user.Saldos.FirstOrDefault();
@@ -414,15 +414,15 @@ namespace OPOService.GraphQL
                     context.RedeemCodes.Update(redeemCode);
                     context.SaveChanges();
                     await transaction.CommitAsync();
-                    return "TopUp Berhasil!";
+                    return "TopUp Success!";
                 }
                 catch
                 {
                     transaction.Rollback();
-                    return "TopUp Gagal!";
+                    return "TopUp Failed!";
                 }
             }
-            else return "User Tidak Ada!";
+            else return "User is not Found!";
         }
     }
 }
