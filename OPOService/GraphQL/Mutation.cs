@@ -28,7 +28,7 @@ namespace OPOService.GraphQL
                 FullName = input.FullName,
                 Email = input.Email,
                 Username = input.Username,
-                Password = BCrypt.Net.BCrypt.HashPassword(input.Password), 
+                Password = BCrypt.Net.BCrypt.HashPassword(input.Password),
                 PhoneNumber = input.PhoneNumber,
                 IsVerified = false,
                 IsDeleted = false
@@ -44,7 +44,7 @@ namespace OPOService.GraphQL
                 FullName = newUser.FullName,
                 PhoneNumber = newUser.PhoneNumber
             });
-            }
+        }
 
         //LOGIN
         public async Task<UserToken> LoginAsync(
@@ -110,7 +110,7 @@ namespace OPOService.GraphQL
             {
                 return "User not found";
             }
-            using var transaction = context.Database.BeginTransaction(); 
+            using var transaction = context.Database.BeginTransaction();
             try
             {
                 user.IsVerified = true;
@@ -123,7 +123,7 @@ namespace OPOService.GraphQL
                     UserId = user.Id
                 };
                 user.UserRoles.Add(userRole);
-                if(input.Role == "USER")
+                if (input.Role == "USER")
                 {
                     var saldo = new Saldo
                     {
@@ -226,8 +226,8 @@ namespace OPOService.GraphQL
         {
             var username = claimsPrincipal.Identity.Name;
 
-            var currUser = context.Users.Where(o => o.Username == username && o.IsDeleted == false).Include(o=>o.Saldos).FirstOrDefault();
-            var targetUser = context.Users.Where(o => o.Username == input.Username || o.PhoneNumber == input.PhoneNumber && o.IsDeleted == false).Include(o=>o.Saldos).FirstOrDefault();
+            var currUser = context.Users.Where(o => o.Username == username && o.IsDeleted == false).Include(o => o.Saldos).FirstOrDefault();
+            var targetUser = context.Users.Where(o => o.Username == input.Username || o.PhoneNumber == input.PhoneNumber && o.IsDeleted == false).Include(o => o.Saldos).FirstOrDefault();
             using var transaction = context.Database.BeginTransaction();
             try
             {
@@ -241,7 +241,7 @@ namespace OPOService.GraphQL
                 {
                     return "User Tujuan Tidak Ada!";
                 }
-                else if(Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(input.Amount))
+                else if (Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(input.Amount))
                 {
                     return "Saldo Tidak Cukup!";
                 }
@@ -256,7 +256,7 @@ namespace OPOService.GraphQL
                     Amount = input.Amount,
                     Description = $"Transfer sebesar {amount} ke {targetUser.FullName}"
                 };
-                
+
                 Transaction newTransactionTargetUser = new Transaction
                 {
                     TransactionName = "Receive",
@@ -337,8 +337,8 @@ namespace OPOService.GraphQL
                 else if (Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(bill2.Bills))
                 {
                     bill2.PaymentStatus = "Saldo Tidak Cukup";
-                } 
-                
+                }
+
                 else
                 {
                     bill2.PaymentStatus = "Complete";
@@ -377,5 +377,53 @@ namespace OPOService.GraphQL
                 };
             }
         }
+        [Authorize(Roles = new[] { "USER" })]
+        public async Task<string> RedeemCodeAsync(
+            string code, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal)
+        {
+            var redeemCode = context.RedeemCodes.Where(o => o.Code == code && o.IsUsed == false).FirstOrDefault();
+            var userName = claimsPrincipal.Identity.Name;
+            var user = context.Users.Where(u => u.Username == userName).Include(s=>s.Saldos).FirstOrDefault();
+
+            if (redeemCode == null)
+                return "RedeemCode Tidak ada";
+            if (user != null)
+            {
+                using var transaction = context.Database.BeginTransaction();
+                try
+                {
+                    decimal value = Convert.ToDecimal(redeemCode.Amount);
+                    string amount = value.ToString("C", CultureInfo.GetCultureInfo("id-ID"));
+
+                    Transaction newTransaction = new Transaction
+                    {
+                        TransactionName = "TopUp",
+                        TransactionDate = DateTime.Now,
+                        Status = "Completed",
+                        Amount = redeemCode.Amount,
+                        Description = $"TopUp sebesar {amount} dari Bank melalui RedeemCode"
+                    };
+                    user.Transactions.Add(newTransaction);
+                    Saldo saldo = user.Saldos.FirstOrDefault();
+                    int newsaldo = Int32.Parse(saldo.SaldoUser) + Int32.Parse(redeemCode.Amount);
+                    saldo.SaldoUser = newsaldo.ToString();
+                    //context.Saldos.Update(saldo);
+                    context.Users.Update(user);
+                    redeemCode.IsUsed = true;
+
+                    context.RedeemCodes.Update(redeemCode);
+                    context.SaveChanges();
+                    await transaction.CommitAsync();
+                    return "TopUp Berhasil!";
+                }
+                catch
+                {
+                    transaction.Rollback();
+                    return "TopUp Gagal!";
+                }
+            }
+            else return "User Tidak Ada!";
+        }
     }
 }
+
