@@ -294,6 +294,7 @@ namespace OPOService.GraphQL
         public async Task<string> BillsAsync(
           int id, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal, [Service] IOptions<KafkaSettings> settings)
         {
+            KafkaHelper.Consumer();
             ////Dari Service Travika/SOLAKA
             //VirtualAccount virtualAccount = new VirtualAccount
             //{
@@ -377,7 +378,7 @@ namespace OPOService.GraphQL
                     var key = "order-" + dts;
                     var val = JsonConvert.SerializeObject(newVA);
 
-                    var result = await KafkaHelper.SendMessage(settings.Value, "SALOKA", key, val);
+                    var result = await KafkaHelper.SendMessage(settings.Value, "SOLAKA", key, val);
 
                 }
                 //return new VirtualAccount { Bills = bill2.Bills, Virtualaccount = bill2.Virtualaccount, PaymentStatus = bill2.PaymentStatus, TransactionId = bill2.TransactionId };
