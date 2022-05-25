@@ -291,8 +291,8 @@ namespace OPOService.GraphQL
         }
 
         [Authorize(Roles = new[] { "USER" })]
-        public async Task<VirtualAccount> BillsAsync(
-          int id, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal)
+        public async Task<string> BillsAsync(
+          int id, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal, [Service] IOptions<KafkaSettings> settings)
         {
             ////Dari Service Travika/SOLAKA
             //VirtualAccount virtualAccount = new VirtualAccount
@@ -327,12 +327,13 @@ namespace OPOService.GraphQL
                 //Update Payment Status
                 if (bill2 == null)
                 {
-                    return new VirtualAccount
-                    {
-                        PaymentStatus = "No Bills",
-                        Bills = "0",
-                        Virtualaccount = "0778" + user1.PhoneNumber
-                    };
+                    return "Tagihan tidak ada";
+                    //return new VirtualAccount
+                    //{
+                    //    PaymentStatus = "No Bills",
+                    //    Bills = "0",
+                    //    Virtualaccount = "0778" + user1.PhoneNumber
+                    //};
                 }
                 else if (Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(bill2.Bills))
                 {
@@ -363,18 +364,35 @@ namespace OPOService.GraphQL
                     context.SaveChanges();
 
                     await transaction.CommitAsync();
+
+                    var newVA = new VirtualAccount 
+                    { 
+                        Bills = bill2.Bills, 
+                        Virtualaccount = bill2.Virtualaccount, 
+                        PaymentStatus = bill2.PaymentStatus,
+                        TransactionId = bill2.TransactionId
+                    };
+
+                    var dts = DateTime.Now.ToString();
+                    var key = "order-" + dts;
+                    var val = JsonConvert.SerializeObject(newVA);
+
+                    var result = await KafkaHelper.SendMessage(settings.Value, "SALOKA", key, val);
+
                 }
-                return new VirtualAccount { Bills = bill2.Bills, Virtualaccount = bill2.Virtualaccount, PaymentStatus = bill2.PaymentStatus };
+                //return new VirtualAccount { Bills = bill2.Bills, Virtualaccount = bill2.Virtualaccount, PaymentStatus = bill2.PaymentStatus, TransactionId = bill2.TransactionId };
+                return "Tagihan berhasil dibayar";
             }
             catch (Exception ex)
             {
                 transaction.Rollback();
-                return new VirtualAccount
-                {
-                    PaymentStatus = ex.Message.ToString(),
-                    Bills = "0",
-                    Virtualaccount = "0778" + user1.PhoneNumber
-                };
+                //return new VirtualAccount
+                //{
+                //    PaymentStatus = ex.Message.ToString(),
+                //    Bills = "0",
+                //    Virtualaccount = "0778" + user1.PhoneNumber
+                //};
+                return "Gagal membayar tagihan";
             }
         }
         [Authorize(Roles = new[] { "USER" })]

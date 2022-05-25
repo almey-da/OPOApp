@@ -5,6 +5,7 @@
         public string Virtualaccount { get; set; }
         public string Bills { get; set; }
         public string PaymentStatus { get; set; }
+        public int  TransactionId { get; set; }
 
     }
 }

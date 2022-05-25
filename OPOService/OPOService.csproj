@@ -8,6 +8,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+		<PackageReference Include="Confluent.Kafka" Version="1.8.2" />
 		<PackageReference Include="HotChocolate.AspNetCore" Version="12.9.0" />
 		<PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="12.9.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.5" />
