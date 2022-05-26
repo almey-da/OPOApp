@@ -39,13 +39,16 @@ namespace OPOService
                 {
                     while (!stoppingToken.IsCancellationRequested)
                     {
+                        var cr = consumer.Consume(stoppingToken);
+                        var value = cr.Message.Value;
                         try
                         {
-                            var cr = consumer.Consume(stoppingToken);
-                            var value = cr.Message.Value;
                             Console.WriteLine($"Consumed record with key: {cr.Message.Key} and value: {value}");
 
                             VirtualAccount m = JsonConvert.DeserializeObject<VirtualAccount>(value);
+
+                            if (m.Virtualaccount.Equals("")) throw new Exception("REDEEM");
+
                             using (var context = new OPOContext())
                             {
                                 string userPhone = m.Virtualaccount.Remove(0, 3);
@@ -65,6 +68,27 @@ namespace OPOService
                         catch (ConsumeException ex)
                         {
                             // log
+                        }
+                        catch (Exception ex2)
+                        {
+                            if (ex2.Message.ToString().Equals("REDEEM"))
+                            {
+                                using (var context = new OPOContext()) 
+                                { 
+                                RedeemCodeData data = JsonConvert.DeserializeObject<RedeemCodeData>(value);
+
+                                RedeemCode redeem = new RedeemCode
+                                {
+                                    Code = data.Code,
+                                    Amount = data.Amount.ToString(),
+                                    IsUsed = false
+                                };
+
+                                context.RedeemCodes.Add(redeem);
+                                context.SaveChanges();
+                                Console.WriteLine("RedeemCode");
+                                }
+                            }
                         }
                     }
                 }

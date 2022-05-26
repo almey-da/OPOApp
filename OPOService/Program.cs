@@ -49,10 +49,9 @@ builder.Services.AddCors(options =>
 });
 
 //Consumer Service (Background Service)
-//builder.Services.AddHostedService<ConsumerService>();
+builder.Services.AddHostedService<ConsumerService>();
+
 var app = builder.Build();
-
-
 
 app.UseAuthentication();
 app.UseAuthorization();
