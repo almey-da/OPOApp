@@ -28,6 +28,7 @@ namespace OPOService.GraphQL
 
             return saldos.AsQueryable();
         }
+
         [Authorize(Roles = new[] { "USER" })]
         public IQueryable<Transaction> GetTransactionByToken([Service] OPOContext context, ClaimsPrincipal claimsPrincipal)
         {
@@ -37,5 +38,19 @@ namespace OPOService.GraphQL
             
             return transaction.AsQueryable();
         }
+
+        [Authorize(Roles = new[] { "USER" })]
+        public IQueryable<Bill> GetBillsByToken([Service] OPOContext context, ClaimsPrincipal claimsPrincipal)
+        {
+            var userName = claimsPrincipal.Identity.Name;
+            var user = context.Users.FirstOrDefault(o => o.Username == userName);
+            List<Bill> bills = context.Bills.Where(o => o.UserId == user.Id).ToList();
+            
+            return bills.AsQueryable();
+        }
+
+        [Authorize(Roles = new[] { "MANAGER" })]
+        public IQueryable<Bill> GetBills([Service] OPOContext context) =>
+            context.Bills;
     }
 }
