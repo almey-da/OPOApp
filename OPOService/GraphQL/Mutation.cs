@@ -179,46 +179,6 @@ namespace OPOService.GraphQL
             return await Task.FromResult(user);
         }
 
-        //TOPUP
-        [Authorize(Roles = new[] { "USER" })]
-        public async Task<string> TopUpByTokenAsync(
-            string amount, ClaimsPrincipal claimsPrincipal,
-            [Service] OPOContext context)
-        {
-            var username = claimsPrincipal.Identity.Name;
-            var user = context.Users.Where(o => o.Username == username).Include(o => o.Saldos).FirstOrDefault();
-            //bool valid = BCrypt.Net.BCrypt.Verify(input.OldPassword, user.Password);
-            if (user != null)
-            {
-                using var transaction = context.Database.BeginTransaction();
-                try
-                {
-                    Transaction newTransaction = new Transaction
-                    {
-                        TransactionName = "TopUp",
-                        TransactionDate = DateTime.Now,
-                        Status = "Completed",
-                        Amount = amount,
-                        Description = $"TopUp Rp{amount} from Bank..."
-                    };
-                    user.Transactions.Add(newTransaction);
-                    Saldo saldo = user.Saldos.FirstOrDefault();
-                    int newsaldo = Int32.Parse(saldo.SaldoUser) + Int32.Parse(amount);
-                    saldo.SaldoUser = newsaldo.ToString();
-                    context.Users.Update(user);
-                    context.SaveChanges();
-                    await transaction.CommitAsync();
-                    return "TopUp Success!";
-                }
-                catch
-                {
-                    transaction.Rollback();
-                    return "TopUp Failed!";
-                }
-            }
-            else return "User is not Found!";
-        }
-
         //TRANSFER AMONG USER
         [Authorize(Roles = new[] { "USER" })]
         public async Task<string> TransferAmongUserAsync(
@@ -297,29 +257,7 @@ namespace OPOService.GraphQL
         public async Task<string> BillsAsync(
           int id, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal, [Service] IOptions<KafkaSettings> settings)
         {
-            KafkaHelper.Consumer();
-            ////Dari Service Travika/SOLAKA
-            //VirtualAccount virtualAccount = new VirtualAccount
-            //{
-            //    Virtualaccount = "077808183923",
-            //    Bills = "100000",
-            //    PaymentStatus = "Pending"
-            //};
-
-            //var val = JsonConvert.SerializeObject(virtualAccount);
-            ////======================================================//
-
-            ////============Consume dari Kafka===========
-            //var val2 = JsonConvert.DeserializeObject<VirtualAccount>(val);
-
-            //var User = context.Users.FirstOrDefault(o => ("0778"+o.PhoneNumber) == val2.Virtualaccount);
-            //Bill bill = new Bill { Bills = val2.Bills, PaymentStatus = val2.PaymentStatus, Virtualaccount = val2.Virtualaccount };
-
-            //User.Bills.Add(bill);
-
-            //await context.SaveChangesAsync();
-            ////=====================================
-
+            
             //Mutation Bill
             var username = claimsPrincipal.Identity.Name;
             var user1 = context.Users.Where(o => o.Username == username).Include(o => o.Bills).Include(o => o.Saldos).FirstOrDefault();
@@ -332,16 +270,11 @@ namespace OPOService.GraphQL
                 if (bill2 == null)
                 {
                     return "Tagihan tidak ada";
-                    //return new VirtualAccount
-                    //{
-                    //    PaymentStatus = "No Bills",
-                    //    Bills = "0",
-                    //    Virtualaccount = "0778" + user1.PhoneNumber
-                    //};
                 }
                 else if (Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(bill2.Bills))
                 {
-                    bill2.PaymentStatus = "The Balance is not Enough";
+                    bill2.PaymentStatus = "Failed";
+                    return "The Balance is not Enough";
                 }
 
                 else
@@ -369,10 +302,10 @@ namespace OPOService.GraphQL
 
                     await transaction.CommitAsync();
 
-                    var newVA = new VirtualAccount 
-                    { 
-                        Bills = bill2.Bills, 
-                        Virtualaccount = bill2.Virtualaccount, 
+                    var newVA = new VirtualAccount
+                    {
+                        Bills = bill2.Bills,
+                        Virtualaccount = bill2.Virtualaccount,
                         PaymentStatus = bill2.PaymentStatus,
                         TransactionId = bill2.TransactionId
                     };
@@ -383,19 +316,21 @@ namespace OPOService.GraphQL
 
                     var result = await KafkaHelper.SendMessage(settings.Value, "SOLAKA", key, val);
 
+                    if (result)
+                    {
+                        return "Tagihan berhasil dibayar";
+                    }
+                    else
+                    {
+                        return "Tagihan Gagal dibayar";
+                    }
+
                 }
-                //return new VirtualAccount { Bills = bill2.Bills, Virtualaccount = bill2.Virtualaccount, PaymentStatus = bill2.PaymentStatus, TransactionId = bill2.TransactionId };
-                return "Tagihan berhasil dibayar";
+
             }
             catch (Exception ex)
             {
                 transaction.Rollback();
-                //return new VirtualAccount
-                //{
-                //    PaymentStatus = ex.Message.ToString(),
-                //    Bills = "0",
-                //    Virtualaccount = "0778" + user1.PhoneNumber
-                //};
                 return "Gagal membayar tagihan";
             }
         }
