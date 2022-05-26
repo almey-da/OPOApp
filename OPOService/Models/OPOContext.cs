@@ -20,6 +20,7 @@ namespace OPOService.Models
         public virtual DbSet<RedeemCode> RedeemCodes { get; set; } = null!;
         public virtual DbSet<Role> Roles { get; set; } = null!;
         public virtual DbSet<Saldo> Saldos { get; set; } = null!;
+        public virtual DbSet<TopUpBank> TopUpBanks { get; set; } = null!;
         public virtual DbSet<Transaction> Transactions { get; set; } = null!;
         public virtual DbSet<User> Users { get; set; } = null!;
         public virtual DbSet<UserRole> UserRoles { get; set; } = null!;
@@ -81,6 +82,29 @@ namespace OPOService.Models
                     .HasForeignKey(d => d.UserId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("FK_Saldo_User");
+            });
+
+            modelBuilder.Entity<TopUpBank>(entity =>
+            {
+                entity.ToTable("TopUp_Bank");
+
+                entity.Property(e => e.Amount)
+                    .HasMaxLength(50)
+                    .IsUnicode(false);
+
+                entity.Property(e => e.Status)
+                    .HasMaxLength(50)
+                    .IsUnicode(false);
+
+                entity.Property(e => e.Virtualaccount)
+                    .HasMaxLength(50)
+                    .IsUnicode(false);
+
+                entity.HasOne(d => d.User)
+                    .WithMany(p => p.TopUpBanks)
+                    .HasForeignKey(d => d.UserId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK_User_TopUp_Bank");
             });
 
             modelBuilder.Entity<Transaction>(entity =>

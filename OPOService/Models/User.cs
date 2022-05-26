@@ -9,6 +9,7 @@ namespace OPOService.Models
         {
             Bills = new HashSet<Bill>();
             Saldos = new HashSet<Saldo>();
+            TopUpBanks = new HashSet<TopUpBank>();
             Transactions = new HashSet<Transaction>();
             UserRoles = new HashSet<UserRole>();
         }
@@ -24,6 +25,7 @@ namespace OPOService.Models
 
         public virtual ICollection<Bill> Bills { get; set; }
         public virtual ICollection<Saldo> Saldos { get; set; }
+        public virtual ICollection<TopUpBank> TopUpBanks { get; set; }
         public virtual ICollection<Transaction> Transactions { get; set; }
         public virtual ICollection<UserRole> UserRoles { get; set; }
     }

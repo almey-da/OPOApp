@@ -179,6 +179,7 @@ namespace OPOService.GraphQL
             return await Task.FromResult(user);
         }
 
+        //TOPUP
         [Authorize(Roles = new[] { "USER" })]
         public async Task<string> TopUpByTokenAsync(
             string amount, ClaimsPrincipal claimsPrincipal,
@@ -218,6 +219,7 @@ namespace OPOService.GraphQL
             else return "User is not Found!";
         }
 
+        //TRANSFER AMONG USER
         [Authorize(Roles = new[] { "USER" })]
         public async Task<string> TransferAmongUserAsync(
             TransferInput input,
@@ -290,6 +292,7 @@ namespace OPOService.GraphQL
 
         }
 
+        //BILLS
         [Authorize(Roles = new[] { "USER" })]
         public async Task<string> BillsAsync(
           int id, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal, [Service] IOptions<KafkaSettings> settings)
@@ -396,6 +399,8 @@ namespace OPOService.GraphQL
                 return "Gagal membayar tagihan";
             }
         }
+
+        //REDEEM CODE
         [Authorize(Roles = new[] { "USER" })]
         public async Task<string> RedeemCodeAsync(
             string code, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal)
@@ -439,6 +444,54 @@ namespace OPOService.GraphQL
                 {
                     transaction.Rollback();
                     return "TopUp Failed!";
+                }
+            }
+            else return "User is not Found!";
+        }
+
+        //TOPUP BANK
+        [Authorize(Roles = new[] { "USER" })]
+        public async Task<string> TopUpBankAsync(
+            string amount, ClaimsPrincipal claimsPrincipal, [Service] IOptions<KafkaSettings> settings,
+            [Service] OPOContext context)
+        {
+            var username = claimsPrincipal.Identity.Name;
+            var user = context.Users.Where(o => o.Username == username).Include(o => o.Saldos).FirstOrDefault();
+
+            if (user != null)
+            {
+                TopUpBank topUpBank = new TopUpBank
+                {
+                    Amount = amount,
+                    Virtualaccount = $"0770{user.PhoneNumber}",
+                    Status = "Pending"
+                };
+
+                user.TopUpBanks.Add(topUpBank);
+                context.Users.Update(user);
+
+                var newVA = new VirtualAccount
+                {
+                    Bills = amount,
+                    Virtualaccount = $"0770{user.PhoneNumber}",
+                    PaymentStatus = "Pending",
+                    TransactionId = topUpBank.Id
+                };
+
+                var dts = DateTime.Now.ToString();
+                var key = "order-" + dts;
+                var val = JsonConvert.SerializeObject(newVA);
+
+                var result = await KafkaHelper.SendMessage(settings.Value, "OPOBank", key, val);
+
+                if (result)
+                {
+                    await context.SaveChangesAsync();
+                    return "Please Pay through Bank";
+                }
+                else
+                {
+                    return "TopUp is Failed";
                 }
             }
             else return "User is not Found!";
