@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
+using OPOService;
 using OPOService.GraphQL;
 using OPOService.Models;
 using System.Text;
@@ -46,6 +47,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("allowedOrigin", builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 });
+
+//Consumer Service (Background Service)
+builder.Services.AddHostedService<ConsumerService>();
 var app = builder.Build();
 
 
