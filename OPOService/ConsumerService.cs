@@ -51,8 +51,8 @@ namespace OPOService
 
                             using (var context = new OPOContext())
                             {
-                                string userPhone = m.Virtualaccount.Remove(0, 3);
-                                var user = context.Users.Where(u => u.PhoneNumber == userPhone).FirstOrDefault();
+                                //string userPhone = m.Virtualaccount.Remove(0, 4);
+                                //var user = context.Users.Where(u => u.PhoneNumber == userPhone).FirstOrDefault();
                                 var newVa = new Bill
                                 {
                                     Virtualaccount = m.Virtualaccount,
@@ -60,9 +60,11 @@ namespace OPOService
                                     PaymentStatus = m.PaymentStatus,
                                     TransactionId = m.TransactionId
                                 };
-                                user.Bills.Add(newVa);
-                                context.Users.Update(user);
+                                //user.Bills.Add(newVa);
+                                //context.Users.Update(user);
+                                context.Bills.Add(newVa);  
                                 context.SaveChanges();
+                                Console.WriteLine("Bills");
                             }
                         }
                         catch (ConsumeException ex)

@@ -193,8 +193,6 @@ namespace OPOService.GraphQL
             using var transaction = context.Database.BeginTransaction();
             try
             {
-                Saldo saldoUser = currUser.Saldos.FirstOrDefault();
-                Saldo saldoTargetUser = targetUser.Saldos.FirstOrDefault();
                 if (currUser == null)
                 {
                     return "User is not Found";
@@ -203,7 +201,10 @@ namespace OPOService.GraphQL
                 {
                     return "Destination User is not Found!";
                 }
-                else if (Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(input.Amount))
+                
+                Saldo saldoUser = currUser.Saldos.FirstOrDefault();
+                Saldo saldoTargetUser = targetUser.Saldos.FirstOrDefault();
+                if (Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(input.Amount))
                 {
                     return "The Balance is not Enough!";
                 }
@@ -255,9 +256,8 @@ namespace OPOService.GraphQL
         //BILLS
         [Authorize(Roles = new[] { "USER" })]
         public async Task<string> BillsAsync(
-          string va, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal, [Service] IOptions<KafkaSettings> settings)
+          int id, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal, [Service] IOptions<KafkaSettings> settings)
         {
-            
             //Mutation Bill
             var username = claimsPrincipal.Identity.Name;
             var user1 = context.Users.Where(o => o.Username == username).Include(o => o.Saldos).FirstOrDefault();
@@ -265,20 +265,23 @@ namespace OPOService.GraphQL
             try
             {
                 Saldo saldoUser = user1.Saldos.FirstOrDefault();
-                Bill bill2 = context.Bills.FirstOrDefault(o => o.Virtualaccount == va && o.PaymentStatus == "Pending");
+                Bill bill2 = context.Bills.FirstOrDefault(o => o.Id == id && o.PaymentStatus == "Pending");
                 //Update Payment Status
                 if (bill2 == null)
                 {
-                    return "Tagihan tidak ada";
+                    return "Bill Not Found";
                 }
                 else if (Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(bill2.Bills))
                 {
-                    bill2.PaymentStatus = "Failed";
+                    //bill2.PaymentStatus = "Failed";
                     return "The Balance is not Enough";
                 }
-
                 else
                 {
+                    var topic = "";
+                    if (bill2.Virtualaccount[..4].Equals("0777")) topic = "SOLAKA";
+                    else if (bill2.Virtualaccount[..4].Equals("0778")) topic = "TRAVIKA";
+
                     bill2.PaymentStatus = "Complete";
 
                     //Update Saldo User
@@ -294,14 +297,16 @@ namespace OPOService.GraphQL
                         TransactionDate = DateTime.Now,
                         Status = "Completed",
                         Amount = bill2.Bills,
-                        Description = $"Payment {amount} to Travika"
+                        Description = $"Payment {amount} to {topic}"
                     };
                     user1.Transactions.Add(newTransaction);
 
                     context.Users.Update(user1);
+                    context.Bills.Update(bill2);
+
                     context.SaveChanges();
 
-                    await transaction.CommitAsync();
+                    //await transaction.CommitAsync();
 
                     var newVA = new VirtualAccount
                     {
@@ -315,19 +320,19 @@ namespace OPOService.GraphQL
                     var key = "order-" + dts;
                     var val = JsonConvert.SerializeObject(newVA);
 
-                    var result = await KafkaHelper.SendMessage(settings.Value, "SOLAKA", key, val);
+                    var result = await KafkaHelper.SendMessage(settings.Value, topic , key, val);
 
                     if (result)
                     {
-                        return "Tagihan berhasil dibayar";
+                        await transaction.CommitAsync();
+                        return "Tagihan Berhasil dibayar";
                     }
                     else
                     {
+                        transaction.Rollback();
                         return "Tagihan Gagal dibayar";
                     }
-
                 }
-
             }
             catch (Exception ex)
             {
@@ -418,7 +423,7 @@ namespace OPOService.GraphQL
                 var key = "order-" + dts;
                 var val = JsonConvert.SerializeObject(newVA);
 
-                var result = await KafkaHelper.SendMessage(settings.Value, "OPOBank", key, val);
+                var result = await KafkaHelper.SendMessage(settings.Value, "Bank", key, val);
 
                 if (result)
                 {
