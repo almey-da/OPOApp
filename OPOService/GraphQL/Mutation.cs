@@ -255,7 +255,7 @@ namespace OPOService.GraphQL
         //BILLS
         [Authorize(Roles = new[] { "USER" })]
         public async Task<string> BillsAsync(
-          int id, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal, [Service] IOptions<KafkaSettings> settings)
+          string va, [Service] OPOContext context, ClaimsPrincipal claimsPrincipal, [Service] IOptions<KafkaSettings> settings)
         {
             
             //Mutation Bill
@@ -265,7 +265,7 @@ namespace OPOService.GraphQL
             try
             {
                 Saldo saldoUser = user1.Saldos.FirstOrDefault();
-                Bill bill2 = user1.Bills.FirstOrDefault(o => o.Id == id && o.PaymentStatus == "Pending");
+                Bill bill2 = user1.Bills.FirstOrDefault(o => o.Virtualaccount == va && o.PaymentStatus == "Pending");
                 //Update Payment Status
                 if (bill2 == null)
                 {
@@ -280,6 +280,7 @@ namespace OPOService.GraphQL
                 else
                 {
                     bill2.PaymentStatus = "Complete";
+                    //bill2.UserId = user1.Id;
                     //Update Saldo User
                     var newSaldoUser = Convert.ToInt32(saldoUser.SaldoUser) - Convert.ToInt32(bill2.Bills);
                     saldoUser.SaldoUser = newSaldoUser.ToString();
