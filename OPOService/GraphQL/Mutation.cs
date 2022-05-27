@@ -201,7 +201,7 @@ namespace OPOService.GraphQL
                 {
                     return "Destination User is not Found!";
                 }
-                
+
                 Saldo saldoUser = currUser.Saldos.FirstOrDefault();
                 Saldo saldoTargetUser = targetUser.Saldos.FirstOrDefault();
                 if (Convert.ToInt32(saldoUser.SaldoUser) < Convert.ToInt32(input.Amount))
