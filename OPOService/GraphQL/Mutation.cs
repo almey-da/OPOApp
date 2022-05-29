@@ -410,6 +410,7 @@ namespace OPOService.GraphQL
 
                 user.TopUpBanks.Add(topUpBank);
                 context.Users.Update(user);
+                await context.SaveChangesAsync();
 
                 var newVA = new VirtualAccount
                 {
@@ -427,7 +428,7 @@ namespace OPOService.GraphQL
 
                 if (result)
                 {
-                    await context.SaveChangesAsync();
+                    //await context.SaveChangesAsync();
                     return "Please Pay through Bank";
                 }
                 else
